@@ -1,0 +1,176 @@
+---
+title: "Repeated Measures ANOVA"
+author: "Julius"
+format: docx
+editor: visual
+---
+
+## Introduction
+
+Repeated Measures ANOVA (Analysis of Variance) is a statistical technique used when the same subjects are measured multiple times under different conditions. This method is particularly useful in experimental designs where the same participants are exposed to various treatments or conditions.
+
+## What is Repeated Measures ANOVA?
+
+Repeated Measures ANOVA is an extension of the traditional ANOVA used when the same subjects are involved in more than one treatment condition. It helps determine whether there are significant differences between the means of different conditions, taking into account the correlation between repeated measurements on the same subjects.
+
+## When to Use Repeated Measures ANOVA?
+
+The same subjects are measured under different conditions or at different time points.
+
+The data is continuous and approximately normally distributed.
+
+The measurements are correlated within subjects.
+
+## Hypotheses in Repeated Measures ANOVA
+
+Null Hypothesis (𝐻0): The means of the different conditions are equal
+
+Alternative Hypothesis (𝐻1): At least one condition mean is different from the others.
+
+## Advantages of Repeated Measures ANOVA
+
+Increased Power: Since the same subjects are used in all conditions, the variability due to individual differences is reduced, leading to higher statistical power.
+
+Efficiency: Fewer subjects are required compared to a between-subjects design.
+
+Control for Individual Differences: By measuring the same subjects under different conditions, individual differences are controlled.
+
+## Assumptions of Repeated Measures ANOVA
+
+Normality: The data within each condition should be approximately normally distributed.
+
+Sphericity: The variances of the differences between all pairs of conditions should be equal (this can be checked using Mauchly's test).
+
+Independence: The observations within each condition should be independent of each other.
+
+## Example in R
+
+Let's go through a practical example to understand how to perform Repeated Measures ANOVA in R. Suppose we have a study where the same group of students is tested on their math scores after using three different study methods (Traditional, Online, Hybrid).
+
+```{r, message=FALSE,warning=FALSE}
+library(tidyverse)# data manipulation
+library(ggstatsplot)# visualizing and conducting statistical tests
+library(car)#homogenity of variance
+library(rstatix)#Perform the Repeated Measures ANOVA 
+library(effectsize)
+# Sample data: students' scores
+data <- data.frame(
+  subject = factor(rep(1:10, each = 3)),
+  method = factor(rep(c("Traditional", "Online", "Hybrid"), times = 10)),
+  score = c(67, 80, 84, 71, 76, 85, 77, 83, 90, 81, 84, 88, 76, 80, 89, 80, 83, 86, 81, 83, 88, 72, 84, 80, 78, 87, 84, 80, 86, 90))
+
+```
+
+### Assumption of normality
+
+```{r,message=FALSE, warning=FALSE}
+#shapiro wilk test
+data %>% 
+  group_by(method) %>% 
+  dlookr::normality(score)
+```
+
+> Normality Assumption is met as p value is greater than 0.05
+
+### Conducting the Test
+
+#### Method1
+
+```{r}
+# Perform Repeated Measures ANOVA
+anova_result <- aov(score ~ method + Error(subject/method), data = data)
+
+# Print the result
+summary(anova_result)
+```
+
+> since the p-value (\<.001) is less than the significance level (typically 0.05), we reject the null hypothesis. This means there is enough evidence to conclude that there is a significant difference in math scores between at least one pair of study methods.
+
+#### Method2
+
+```{r}
+
+# Perform the Repeated Measures ANOVA 
+anova_result2 <- data %>% anova_test(dv = score, wid = subject, within = method)
+
+
+```
+
+## Assumption of sphericity
+
+-   Method1
+
+```{r}
+anova_result2$`Mauchly's Test for Sphericity`
+
+```
+
+The Mauchly’s Test of Sphericity gives a Mauchly’s W test statistic of .968, p \> .05. We can therefore conclude that the sphericity assumption has been met
+
+-   Method2
+
+```{r}
+anova_result2$`Sphericity Corrections`
+```
+
+However, some debate as to the sensitivity of Mauchly’s test in its ability to detect sphericity. There is therefore the alternative of consulting the Epsilon value quoted in the Greenhouse-Geisser column. This figure should be as close to 1.00 as possible in order to indicate no sphericity problems. Our value is .969 so we can be confident that issues of sphericity do not affect our calculations
+
+-   Method3
+
+```{r, message=FALSE, warning=FALSE}
+## spericity
+data$method <- factor(data$method)
+data_s <- data %>% 
+  pivot_wider(names_from = "method", values_from = "score")
+data_s %>% mutate(
+  trad_onl =(Traditional- Online), trad_hyb = (Traditional-Online),
+  onl_hyb = (Online-Hybrid)) %>% 
+  data.frame() %>% 
+  select(-2,-3,-4) %>% 
+  pivot_longer(cols = c(2,3,4), names_to = "differences", values_to = "score_d") %>% 
+  group_by(differences) %>% 
+  leveneTest(score_d ~differences, data = .)
+  
+```
+
+> p value \>.05 indicates equal variances of differences between all possible pairs of conditions thus the sphericity assumption have been met.
+
+```{r}
+anova_result2$ANOVA
+```
+
+> since the p-value (\<.001) is less than the significance level (typically 0.05), we reject the null hypothesis. This means there is enough evidence to conclude that there is a significant difference in math scores between at least one pair of study methods.
+
+### Post-Hoc Analysis
+
+```{r}
+# Perform pairwise comparisons with holm correction
+pairwise.t.test(data$score, data$method, p.adjust.method = "holm",
+                paired = T)
+
+```
+
+> All the three Methods differs with hybrid method having the highest scores
+
+### Visual Format of the Test
+
+```{r, warning=FALSE, message=FALSE}
+ggwithinstats(
+  data = data,
+  x = method,
+  y = score,
+  type = "p"
+)
+```
+
+### Effectsize
+
+```{r}
+interpret_omega_squared(0.54,rules = "cohen1992" )
+```
+
+The difference between the three methods is large
+
+### conclusion
+
+Repeated Measures ANOVA is a crucial statistical tool for analyzing data from experiments where the same subjects are measured under different conditions. In this article, we've covered the theoretical background, practical implementation in R, and interpretation of results. Always check the assumptions of normality, sphericity, and independence before performing the test to ensure valid conclusions.

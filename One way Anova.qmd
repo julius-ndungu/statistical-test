@@ -1,0 +1,219 @@
+---
+title: "One Way Anova"
+format: docx
+editor: visual
+---
+
+## Introduction
+
+Analysis of Variance (ANOVA) is a powerful statistical technique used to compare means across multiple groups. One of the most commonly used forms of ANOVA is the one-way ANOVA, which helps determine whether there are statistically significant differences between the means of three or more independent groups. In this article, we will explore the concept of one-way ANOVA, discuss its importance, and provide a detailed example using R.
+
+### What is One-Way ANOVA?
+
+One-way ANOVA is a method used to compare the means of three or more independent groups to see if at least one group mean is different from the others. It extends the t-test to more than two groups and helps avoid the increased risk of Type I error associated with multiple pairwise comparisons.
+
+### When to Use One-Way ANOVA?
+
+One-way ANOVA is appropriate when
+
+You have three or more independent groups. The data is continuous and approximately normally distributed within each group. The variances across groups are roughly equal (homogeneity of variances).
+
+### Hypotheses in One-Way ANOVA
+
+The one-way ANOVA involves two hypotheses:
+
+Null Hypothesis (𝐻0): All group means are equal
+
+Alternative Hypothesis (𝐻1): At least one group mean is different from the others.
+
+### Assumptions of One-Way ANOVA
+
+Normality: The data in each group should be approximately normally distributed.
+
+Independence: The observations in each group should be independent of each other.
+
+Homogeneity of Variances: The variances of the groups should be equal (this can be checked using Levene's test).
+
+### ANOVA Table and F-Statistic
+
+The one-way ANOVA produces an ANOVA table, which includes the following components:
+
+Between-group variability: Variability due to the differences between group means.
+
+Within-group variability: Variability within each group.
+
+F-Statistic: The ratio of between-group variability to within-group variability.
+
+A larger F-statistic indicates a greater likelihood that there is a significant difference between group means.
+
+### Example in R
+
+Let's go through a practical example to understand how to perform a one-way ANOVA in R. Suppose we have three groups of students who received different types of instruction (Classroom, Online, Hybrid), and we want to test if there is a significant difference in their test scores.
+
+```{r, message=FALSE,warning=FALSE}
+# Sample data: students' scores
+library(tidyverse)
+library(car)
+library(ggstatsplot)
+library(effectsize)
+scores <- data.frame(
+  score = c(78, 82, 69, 71, 85, 79, 77, 68, 74, 81, 85, 88, 76, 80, 89, 84, 82, 78, 86, 83, 79, 84, 77, 81, 82, 85, 78, 80, 83, 86),
+  group = factor(rep(c("Classroom", "Online", "Hybrid"), each = 10))
+)
+
+
+
+```
+
+```{r}
+# checking the assumptions
+# normality
+scores %>% group_by(group) %>% 
+  dlookr::normality(score)
+```
+
+> p-value \>.05 indicates that the normality assumptions have been satisfied in all the groups
+
+```{r}
+# homogenity of variance assumptions
+
+leveneTest(score ~ group, data = scores)
+```
+
+> pvalue \>.05 indicates that homogenity of variance assumption have been met
+
+Ploting the data
+
+```{r}
+scores %>% 
+  ggplot(aes(group, score, fill = group))+geom_boxplot()+
+  theme_test()+theme(legend.position = "none")+
+  labs(title = "A Box Plot of the Three Instruction  Methods")
+```
+
+```{r}
+# Perform one-way ANOVA
+anova_result <- aov(score ~ group, data = scores)
+
+# Print the result
+summary(anova_result)
+```
+
+> Since the p-value (0.00631) is less than the significance level (typically 0.05), we reject the null hypothesis. This means there is enough evidence to conclude that there is a significant difference in test scores between at least one pair of the groups.
+
+### Post-Hoc Analysis
+
+If the one-way ANOVA indicates a significant difference, we often conduct a post-hoc analysis to determine which specific groups differ. A common post-hoc test is Tukey's Honest Significant Difference (HSD) test.
+
+```{r}
+# Perform Tukey's HSD test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the result
+print(tukey_result)
+
+```
+
+The groups that differs are
+
+Hybrid and Classroom(pvalue = 0.0424198)
+
+Online and classroom(pvalue = 0.0064475)
+
+### Visualizing the Test and More Post Hoc Tests
+
+```{r,warning=FALSE,message=FALSE}
+theme_set(theme_test())
+ggbetweenstats(
+  data = scores,
+  x = group,
+  y = score,
+  type = "parametric",
+  var.equal = T
+)+theme(legend.position = "top")
+```
+
+### Effectsize
+
+```{r}
+interpret_omega_squared(0.26, rules = "cohen1992")
+```
+
+Cohen (1992) ("cohen1992") applicable to one-way anova, or to partial eta / omega / epsilon squared in multi-way anova.
+
+ES \< 0.02 - Very small
+
+0.02 \<= ES \< 0.13 - Small
+
+0.13 \<= ES \< 0.26 - Medium
+
+ES \>= 0.26 - Large
+
+> The difference is in the three instruction method is large.
+
+## Non Parametric Test verson of One Way Anova
+
+If the data is not normally distributed then we use the non parametric test known as Kruskal-Wallis Test
+
+### Example
+
+```{r}
+# Sample data
+group1 <- c(2.1, 2.3, 1.8)
+group2 <- c(3.1, 3.3, 2.8)
+group3 <- c(4.1, 4.3, 3.8)
+
+# Combine data into a data frame
+data <- data.frame(
+  value = c(group1, group2, group3),
+  group = factor(rep(c("Group1", "Group2", "Group3"), each = 3))
+)
+
+#Assuming the data is not normally distributed
+
+# Perform the Kruskal-Wallis Test
+  
+kruskal.test(value ~ group, data = data)
+
+```
+
+> p value \<-05 indicates that there is significant difference between the three groups
+
+### Kruskal-Wallis Post Hoc Test
+
+```{r,message=FALSE,warning=FALSE}
+library(FSA)
+
+# Perform post hoc pairwise comparisons using the Dunn test
+dunn_test_result <- dunnTest(value ~ group, data = data, method = "holm")
+
+print(dunn_test_result)
+```
+
+> The difference exists in Group 1 and Group 3 only
+
+## Visual Format of the Test
+
+```{r,warning=FALSE,message=FALSE}
+ggbetweenstats(
+  data = data,
+  x = group,
+  y = value,
+  type = "np"
+)+ labs(title = "Kruskal-Wallis Test")+
+  theme(legend.position = "top")
+```
+
+### Effect size
+
+How much is the difference
+
+```{r}
+interpret_epsilon_squared(0.90)
+```
+
+### Conclusion
+
+One-way ANOVA is an essential statistical tool for comparing the means of three or more independent groups. Always check the assumptions of normality, independence, and homogeneity of variances before performing the test to ensure valid conclusions.
+
+Understanding and correctly applying one-way ANOVA can significantly enhance your data analysis skills, enabling you to make informed decisions based on your data. Happy analyzing!
